@@ -87,7 +87,7 @@ class MatchSource(Enum):
 @dataclass()
 class Playlist:
     """
-        After collecting, the data must be SOMEWHERE. Here.
+        After collecting, the data must be in the con
     """
     name: str
     content: list = None
@@ -99,7 +99,7 @@ class Playlist:
             self.content = []
 
         if line is None:
-            raise ValueError("Playlist line may never be None.")
+            raise ValueError("Playlist line may never be NIL.")
 
         self.content.append(line)
 
@@ -113,7 +113,7 @@ class Playlist:
         if self.content is None:
             self.content = []
 
-        print("Updating placeholders for Playlist {}...".format(self.name))
+        print("Updating placeholders for new Playlist {}{}...".format(self.name))
     
         for i in range(len(self.content)):
             if self.content[i].startswith(Playlist.PLACEHOLDER):
@@ -157,7 +157,7 @@ class MatchTracker:
 
     def unmatch_for_playlist(self, playlist):
         """
-            Keeps track of which playlists are incomplete.
+            Keeps track of which playlists are incomplete or those which need to be furnished.
         """
         self.num_songs_missing[playlist] = self.num_songs_missing.get(playlist, 0) + 1
 
@@ -195,13 +195,14 @@ def filter_playlists(subfolders):
 @dataclass(frozen=True)
 class SongInfo:
     """
-      Basically a Named Tuple for storing info of a song
+      The class SongInfo is basically a Named Tuple for storing information of a designated song.
     """
     title: str
     artist: str
     liked: bool
     album: str
     title_stripped: str
+    date: str
 
 def strip_title(title):
     if title is None:
@@ -213,9 +214,11 @@ def strip_title(title):
 
 def read_gpm_playlist(playlistdir, trackdir='Tracks'):
     """
+      Reads the list of the gpm playlist directory and tracks the directory
       Returns a list of song names contained in a GPM Takeout Playlist
     """
     song_infos_unsorted = []
+    # """song_infos_sorted = []"""
     tracks_path = os.path.join(playlistdir, trackdir)
     # Expected contents of that directory is one file per song, 
     # each file csv-formatted and containing something like this:
@@ -225,20 +228,21 @@ def read_gpm_playlist(playlistdir, trackdir='Tracks'):
     # <newline>
     
     song_csvs = [ f.path for f in os.scandir(tracks_path) if f.is_file() ]
+    # scan the directory to find path 
     for song_csv in song_csvs:
         try:
             with open(song_csv, encoding="utf-8") as csvfile:
                 rows = csv.reader(csvfile)
                 for title, album, artist, duration_ms, rating, play_count, removed, playlist_index in rows:
                     if (title.strip() == 'Title') and (artist.strip() == 'Artist') and (album.strip() == 'Album'):
-                        # skip headline
+                        # skip headline and continue
                         continue
                     # clean up google's htmlencoding mess
                     title = html.unescape(title)
                     album = html.unescape(album)
                     artist = html.unescape(artist)
 
-                    print("Reading GPM  {} by {}.".format(title, artist))
+                    print("Reading GPM  {} by {}".format(title, artist))
                     song_info = SongInfo(title= title, album= album, artist= artist, liked= (rating == '5'),
                             title_stripped=strip_title(title))
                     song_infos_unsorted.append((song_info, playlist_index))
@@ -260,7 +264,7 @@ def generate_songlists(mdir=PLAYLISTS_PATH, outdir='./songlists', handle_thumbs_
         with open("{}.txt".format(playlistpath), 'w+', encoding="utf-8") as sfile:
             for info in song_info_list_sorted:
                 sfile.write("{artist} - {title} - {album}\n".format(artist=info.artist, title=info.title, album=info.album))
-    # now handle the Thumbs up playlist
+    # handle the Thumbs up playlist and display the playlist name 
     if handle_thumbs_up:
         sils = read_gpm_playlist(mdir, trackdir='Thumbs up')
         playlistname='Thumbs up'
@@ -290,6 +294,7 @@ class FileTag:
     title: str
 
     def is_everything_unset(self):
+        #  are we checking if everytrhing is in unset and an if loop about artist, alnum or title
         if self.artist or self.album or self.title:
             # at least one thing is set
             if (self.artist == "") and (self.album == "") and (self.title== ""):
@@ -307,7 +312,7 @@ class FileTag:
             result = result and (self.title == title)
         if self.album:
             result = result and (self.album == album)
-        return result
+        return result # everthing is stored in result and we are returning the set_parts_equal
 
 @dataclass
 class FileInfo:
@@ -317,6 +322,9 @@ class FileInfo:
 
     def get_plain_filename(self):
         return os.path.splitext(self.filename)[0]
+    
+    def get_special_filename(self):
+        return os.path.splittext(self.filename)[0]
 
     def is_tag_set(self):
         return not (True if self.tag is None else self.tag.is_everything_unset())
@@ -324,7 +332,7 @@ class FileInfo:
     def update_tag_from_fs(self):
         newly_loaded_tag = False
         try:
-            # the returns from mutagen are lists, that's why the index 0 everywhere.
+            # the returns from mutagen are lists, that's why the index 0 everywhere
             tag=EasyID3(self.full_path)
             self.tag = FileTag(artist=(tag['artist'][0] if 'artist' in tag else ''), album=(tag['album'][0] if 'album' in tag else ''), title=(tag['title'][0] if 'title' in tag else ''))
             newly_loaded_tag = True
@@ -487,6 +495,8 @@ def tags_contain_info(local_music_file_infos, song_info, tracker, playlist: Play
         return False
 
 def filepath_contains_info(local_music_file_infos, song_info, tracker, playlist: Playlist):
+    
+    # we are finding if there are any filepath that contains information about the functions right  
     found_mfi_options = []
     for mfi in local_music_file_infos:
         if x_fuzzily_contains_y(x=mfi.full_path, y=song_info.title):
@@ -549,7 +559,7 @@ def complete_playlists_interactively(playlists: list):
             if entry.startswith(Playlist.PLACEHOLDER):
                 user_specifiable_mappings[entry[len(Playlist.PLACEHOLDER):]] = infostring
     
-    if len(user_specifiable_mappings) > 0:
+    if len(user_specifiable_mappings) > 0: # checking if the length of the user_specifiable_mapoings are lager then 0 or positive. 
         need_more_input=True
     else:
         need_more_input=False
@@ -990,8 +1000,10 @@ if __name__ == '__main__':
             print("using current directory {} as MUSIC_PATH".format(os.getcwd()))
             MUSIC_PATH = os.getcwd()
 
-    # always:
+    # always print the todos 
     main()
     print_todos()
     print("Done", file=sys.stderr)
+    
+    
 
